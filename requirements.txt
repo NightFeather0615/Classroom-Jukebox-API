@@ -1,0 +1,4 @@
+deta
+fastapi
+uvicorn[standard]
+yt_dlp

@@ -1,6 +1,6 @@
 import re
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 import yt_dlp
 from deta import Deta
 
@@ -48,7 +48,8 @@ db = deta.Base("playback_data_cache")
 app = FastAPI()
 
 @app.get("/")
-def root():
+def root(response: Response):
+  response.headers["Content-Type"] = "application/json; charset=utf-8"
   return {
     "version": "1.0.0",
     "source_code": "https://github.com/NightFeather0615/Classroom-Jukebox-API",
@@ -56,19 +57,19 @@ def root():
   }
 
 @app.get("/playback-data")
-def read_item(source: str):
+def read_item(source: str, response: Response):
+  response.headers["Content-Type"] = "application/json; charset=utf-8"
   try:
     video_id = VAILD_URL_REGEXP.match(source).group("id")
   except:
+    response.status_code = status.HTTP_400_BAD_REQUEST
     return {
-      "status": "failed",
       "msg": "Invaild YouTube source URL."
     }
   
   if (cache_data := db.get(video_id)) is not None:
     del cache_data["__expires"]
     del cache_data["key"]
-    cache_data["status"] = "success"
     return cache_data
   
   try:
@@ -82,17 +83,17 @@ def read_item(source: str):
       )
     )["url"]
     playback_data = {
-      "video_id": info["id"],
-      "thumbnail": info["thumbnail"],
-      "title": info["fulltitle"],
+      "audio_source": playback_url,
       "channel": info["channel"],
       "duration": info["duration"],
       "original_url": info["original_url"],
-      "audio_source": playback_url
+      "thumbnail": info["thumbnail"],
+      "title": info["fulltitle"],
+      "video_id": info["id"],
     }
   except:
+    response.status_code = status.HTTP_400_BAD_REQUEST
     return {
-      "status": "failed",
       "msg": "Unknown error occurred while getting playback data."
     }
   
@@ -102,5 +103,4 @@ def read_item(source: str):
     expire_at = int(EXPIRE_AT_REGEXP.match(playback_url).group("expireAt"))
   )
   
-  playback_data["status"] = "success"
   return playback_data

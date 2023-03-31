@@ -47,7 +47,7 @@ deta = Deta()
 db = deta.Base("playback_data_cache")
 app = FastAPI()
 
-@app.get("/v1")
+@app.get("/")
 def root():
   return {
     "version": "1.0.0",
@@ -55,7 +55,7 @@ def root():
     "powered_by": "https://deta.space/"
   }
 
-@app.get("/v1/playback-data")
+@app.get("/playback-data")
 def read_item(source: str):
   try:
     video_id = VAILD_URL_REGEXP.match(source).group("id")

@@ -51,9 +51,8 @@ app = FastAPI()
 def root():
   return {
     "version": "1.0.0",
-    "source_code": [
-      
-    ]
+    "source_code": "https://github.com/NightFeather0615/Classroom-Jukebox-API",
+    "powered_by": "https://deta.space/"
   }
 
 @app.get("/v1/playback-data")

@@ -7,6 +7,7 @@ from deta import Deta
 EXPIRE_AT_REGEXP = re.compile(
   r"https://.*/videoplayback\?expire=(?P<expireAt>[0-9]{10}).*"
 )
+# Source: https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube.py#L1054-L1086
 VAILD_URL_REGEXP = re.compile(
   r"""(?x)^
       (

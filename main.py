@@ -49,8 +49,8 @@ VAILD_URL_REGEXP = re.compile(
       (?:\#|$)"""
 )
 
-# deta = Deta()
-# db = deta.Base("playback_data_cache")
+deta = Deta()
+db = deta.Base("playback_data_cache")
 app = FastAPI()
 
 @app.get("/")
@@ -76,53 +76,53 @@ def fetch_audio(audio_source: str, response: Response):
   with urllib.urlopen(urllib.Request(source_url, method = "GET", headers = { "Range": f"bytes=0-{content_length - 1}" })) as audio_r:
     return Response(audio_r.read(), media_type="audio/mp4")
 
-# @app.get("/playback-data")
-# def playback_data(youtube_url: str, response: Response):
-#   response.headers["Content-Type"] = "application/json; charset=utf-8"
-#   response.headers["Access-Control-Allow-Origin"] = "*"
-#   try:
-#     video_id = VAILD_URL_REGEXP.match(youtube_url).group("id")
-#   except:
-#     response.status_code = status.HTTP_400_BAD_REQUEST
-#     return {
-#       "msg": "Invaild YouTube source URL."
-#     }
+@app.get("/playback-data")
+def playback_data(youtube_url: str, response: Response):
+  response.headers["Content-Type"] = "application/json; charset=utf-8"
+  response.headers["Access-Control-Allow-Origin"] = "*"
+  try:
+    video_id = VAILD_URL_REGEXP.match(youtube_url).group("id")
+  except:
+    response.status_code = status.HTTP_400_BAD_REQUEST
+    return {
+      "msg": "Invaild YouTube source URL."
+    }
   
-#   if (cache_data := db.get(video_id)) is not None:
-#     del cache_data["__expires"]
-#     del cache_data["key"]
-#     return cache_data
+  if (cache_data := db.get(video_id)) is not None:
+    del cache_data["__expires"]
+    del cache_data["key"]
+    return cache_data
 
-#   try:
-#     with yt_dlp.YoutubeDL() as dlp:
-#       info = dlp.extract_info(youtube_url, download = False)
+  try:
+    with yt_dlp.YoutubeDL() as dlp:
+      info = dlp.extract_info(youtube_url, download = False)
     
-#     playback_url = sorted(
-#       filter(
-#         lambda x: x["resolution"] == "audio only" and x["audio_ext"] == "m4a",
-#         info["formats"]
-#       ),
-#       key = lambda x: x["asr"]
-#     )[-1]["url"]
-#     playback_data = {
-#       "audio_source": f"{API_BASE_URL}/fetch-audio?audio_source={base64.b64encode(str.encode(playback_url)).decode('utf-8')}",
-#       "channel": info["channel"],
-#       "duration": info["duration"],
-#       "original_url": info["original_url"],
-#       "thumbnail": info["thumbnail"],
-#       "title": info["fulltitle"],
-#       "video_id": info["id"],
-#     }
+    playback_url = sorted(
+      filter(
+        lambda x: x["resolution"] == "audio only" and x["audio_ext"] == "m4a",
+        info["formats"]
+      ),
+      key = lambda x: x["asr"]
+    )[-1]["url"]
+    playback_data = {
+      "audio_source": f"{API_BASE_URL}/fetch-audio?audio_source={base64.b64encode(str.encode(playback_url)).decode('utf-8')}",
+      "channel": info["channel"],
+      "duration": info["duration"],
+      "original_url": info["original_url"],
+      "thumbnail": info["thumbnail"],
+      "title": info["fulltitle"],
+      "video_id": info["id"],
+    }
   
-#     db.put(
-#       playback_data,
-#       key = video_id,
-#       expire_at = int(EXPIRE_AT_REGEXP.match(playback_url).group("expireAt"))
-#     )
+    db.put(
+      playback_data,
+      key = video_id,
+      expire_at = int(EXPIRE_AT_REGEXP.match(playback_url).group("expireAt"))
+    )
   
-#     return playback_data
-#   except Exception as e:
-#     response.status_code = status.HTTP_400_BAD_REQUEST
-#     return {
-#       "msg": "Unknown error occurred while getting playback data."
-#     }
+    return playback_data
+  except Exception as e:
+    response.status_code = status.HTTP_400_BAD_REQUEST
+    return {
+      "msg": "Unknown error occurred while getting playback data."
+    }

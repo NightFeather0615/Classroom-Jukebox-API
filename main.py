@@ -3,16 +3,11 @@ import urllib.request as urllib
 import base64
 
 from fastapi import FastAPI, Response, status
-from fastapi.responses import StreamingResponse
 import yt_dlp
 from deta import Deta
 
-API_BASE_URL = "https://api.classroom-jukebox.nightfeather.dev"
 
-EXPIRE_AT_REGEXP = re.compile(
-  r"https://.*/videoplayback\?expire=(?P<expireAt>[0-9]{10}).*"
-)
-# Source: https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube.py#L1054-L1086
+# URL Regex Source: https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube.py#L1054-L1086
 VAILD_URL_REGEXP = re.compile(
   r"""(?x)^
       (
@@ -48,9 +43,15 @@ VAILD_URL_REGEXP = re.compile(
       (?(1).+)?                                                # if we found the ID, everything can follow
       (?:\#|$)"""
 )
+EXPIRE_AT_REGEXP = re.compile(
+  r"https://.*/videoplayback\?expire=(?P<expireAt>[0-9]{10}).*"
+)
+
+API_BASE_URL = "https://api.classroom-jukebox.nightfeather.dev"
+DETA_PAYLOAD_LIMIT = 4718667
 
 deta = Deta()
-db = deta.Base("playback_data_cache")
+database = deta.Base("playback_data_cache")
 app = FastAPI()
 
 @app.get("/")
@@ -62,10 +63,9 @@ def root(response: Response):
     "powered_by": "https://deta.space/"
   }
 
-
 @app.get("/fetch-audio")
 def fetch_audio(audio_source: str, response: Response):
-  response.headers["Content-Type"] = "audio/mp4"
+  response.headers["Content-Type"] = "audio/webm"
   response.headers["Access-Control-Allow-Origin"] = "*"
   
   source_url = base64.b64decode(audio_source).decode("utf-8")
@@ -74,7 +74,9 @@ def fetch_audio(audio_source: str, response: Response):
     content_length = int(head_r.getheader("Content-Length"))
   
   with urllib.urlopen(urllib.Request(source_url, method = "GET", headers = { "Range": f"bytes=0-{content_length - 1}" })) as audio_r:
-    return Response(audio_r.read(), media_type="audio/mp4")
+    r = audio_r.read()
+    print(len(r))
+    return Response(r, media_type="audio/webm")
 
 @app.get("/playback-data")
 def playback_data(youtube_url: str, response: Response):
@@ -88,7 +90,7 @@ def playback_data(youtube_url: str, response: Response):
       "msg": "Invaild YouTube source URL."
     }
   
-  if (cache_data := db.get(video_id)) is not None:
+  if (cache_data := database.get(video_id)) is not None:
     del cache_data["__expires"]
     del cache_data["key"]
     return cache_data
@@ -99,7 +101,7 @@ def playback_data(youtube_url: str, response: Response):
     
     playback_url = sorted(
       filter(
-        lambda x: x["resolution"] == "audio only" and x["audio_ext"] == "m4a",
+        lambda x: x["resolution"] == "audio only" and x["audio_ext"] == "webm" and x["filesize"] <= DETA_PAYLOAD_LIMIT,
         info["formats"]
       ),
       key = lambda x: x["asr"]
@@ -114,7 +116,7 @@ def playback_data(youtube_url: str, response: Response):
       "video_id": info["id"],
     }
   
-    db.put(
+    database.put(
       playback_data,
       key = video_id,
       expire_at = int(EXPIRE_AT_REGEXP.match(playback_url).group("expireAt"))

@@ -59,6 +59,7 @@ def root(response: Response):
 @app.get("/playback-data")
 def read_item(source: str, response: Response):
   response.headers["Content-Type"] = "application/json; charset=utf-8"
+  response.headers["Access-Control-Allow-Origin"] = "*"
   try:
     video_id = VAILD_URL_REGEXP.match(source).group("id")
   except:

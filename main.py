@@ -76,12 +76,13 @@ def fetch_audio(audio_source: str, response: Response):
   with urllib.urlopen(urllib.Request(source_url, method = "GET", headers = { "Range": f"bytes=0-{content_length - 1}" })) as audio_r:
     r = audio_r.read()
     print(len(r))
-    return Response(r, media_type="audio/webm")
+    return Response(r, media_type = "audio/webm", headers = response.headers)
 
 @app.get("/playback-data")
 def playback_data(youtube_url: str, response: Response):
   response.headers["Content-Type"] = "application/json; charset=utf-8"
   response.headers["Access-Control-Allow-Origin"] = "*"
+  
   try:
     video_id = VAILD_URL_REGEXP.match(youtube_url).group("id")
   except:

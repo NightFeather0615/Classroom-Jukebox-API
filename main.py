@@ -2,7 +2,7 @@ import re
 import urllib.request as urllib
 import base64
 
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Response, status, Request
 import yt_dlp
 from deta import Deta
 
@@ -64,9 +64,12 @@ def root(response: Response):
   }
 
 @app.get("/fetch-audio")
-def fetch_audio(audio_source: str, response: Response):
+def fetch_audio(audio_source: str, request: Request, response: Response):
   response.headers["Content-Type"] = "audio/webm"
   response.headers["Access-Control-Allow-Origin"] = "*"
+  response.headers["Accept-Ranges"] = "bytes"
+  
+  range_header = request.headers.get("range", None)
   
   source_url = base64.b64decode(audio_source).decode("utf-8")
   
@@ -74,9 +77,39 @@ def fetch_audio(audio_source: str, response: Response):
     content_length = int(head_r.getheader("Content-Length"))
   
   with urllib.urlopen(urllib.Request(source_url, method = "GET", headers = { "Range": f"bytes=0-{content_length - 1}" })) as audio_r:
-    r = audio_r.read()
-    print(len(r))
-    return Response(r, media_type = "audio/webm", headers = response.headers)
+    audio_data = audio_r.read()
+    
+    if range_header is None:
+      response.headers["Content-Length"] = str(len(audio_data))
+      return Response(
+        audio_data, 
+        media_type = "audio/webm",
+        status_code = 200,
+        headers = response.headers
+      )
+      
+    range_header = range_header.replace("bytes=", "").split("-")
+    range_start = range_header[0]
+    range_end = range_header[1]
+    
+    if range_end == "":
+      audio_slice = audio_data[int(range_start):]
+      response.headers["Content-Length"] = str(len(audio_slice))
+      return Response(
+        audio_slice, 
+        media_type = "audio/webm", 
+        status_code = 206,
+        headers = response.headers
+      )
+      
+    audio_slice = audio_data[int(range_start):int(range_end) + 1]
+    response.headers["Content-Length"] = str(len(audio_slice))
+    return Response(
+      audio_slice, 
+      media_type = "audio/webm", 
+      status_code = 206,
+      headers = response.headers
+    )
 
 @app.get("/playback-data")
 def playback_data(youtube_url: str, response: Response):
